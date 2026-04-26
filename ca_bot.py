@@ -20,10 +20,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─── APNI KEYS YAHAN DAALO ────────────────────────────────────────────────────
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8575203310:AAGwDKwdbaEVc_ckvV0rMH2lbwek65LUC9U").strip()
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyDFr2G6olPUNXcLky8NwJJ6SMQar1CjuAk").strip()
+# Railway pe Variables tab mein set karo, locally .env file mein daalo
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+
+if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
+    logger.error("❌ TELEGRAM_TOKEN ya GEMINI_API_KEY set nahi hai!")
+    logger.error("Locally: .env file mein daalo | Railway: Variables tab mein daalo")
+    raise SystemExit("API keys missing! Set TELEGRAM_TOKEN and GEMINI_API_KEY.")
 # ──────────────────────────────────────────────────────────────────────────────
-logger.info(f"Token starts with: {TELEGRAM_TOKEN[:10]}... len={len(TELEGRAM_TOKEN)}")
+logger.info(f"Token loaded: {TELEGRAM_TOKEN[:10]}... | Gemini key loaded: {GEMINI_API_KEY[:10]}...")
 
 # User stats file for progress tracking
 STATS_FILE = "user_stats.json"
