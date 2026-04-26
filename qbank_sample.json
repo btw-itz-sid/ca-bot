@@ -1,0 +1,129 @@
+{
+  "sample_questions": {
+    "accounts_easy": [
+      {
+        "q": "Which of the following is NOT one of the fundamental accounting concepts?",
+        "type": "mcq",
+        "opts": [
+          "A) Materiality",
+          "B) Going Concern",
+          "C) Conservatism",
+          "D) Liquidity"
+        ],
+        "ans": 3,
+        "exp": "Liquidity is a financial ratio concept, not a fundamental accounting concept. The fundamental concepts include Materiality, Going Concern, and Conservatism among others."
+      },
+      {
+        "q": "Trial Balance is prepared to check the accuracy of posting in ledger.",
+        "type": "truefalse",
+        "opts": ["True", "False"],
+        "ans": 0,
+        "exp": "True. Trial Balance is prepared to check whether the total debit balances equal total credit balances, ensuring accuracy of ledger posting."
+      },
+      {
+        "q": "What is the accounting equation?",
+        "type": "mcq",
+        "opts": [
+          "A) Assets = Liabilities + Capital",
+          "B) Assets = Liabilities - Capital",
+          "C) Assets + Liabilities = Capital",
+          "D) Capital = Assets + Liabilities"
+        ],
+        "ans": 0,
+        "exp": "Assets = Liabilities + Capital (or Equity) is the fundamental accounting equation that forms the basis of all accounting records."
+      }
+    ],
+    "laws_medium": [
+      {
+        "q": "Which of the following best describes 'Consideration' under Indian Contract Act?",
+        "type": "mcq",
+        "opts": [
+          "A) Thought given to the other party",
+          "B) Something of value given by both parties",
+          "C) A promise made by one party",
+          "D) The time taken to decide"
+        ],
+        "ans": 1,
+        "exp": "Consideration is something of value (money, goods, services, or forbearance) given by one party and received by the other as part of the contract exchange."
+      },
+      {
+        "q": "An agreement made without consideration is always void.",
+        "type": "truefalse",
+        "opts": ["True", "False"],
+        "ans": 1,
+        "exp": "False. Agreements without consideration may be valid in certain cases, such as gifts, charitable promises, and other exceptions mentioned in the Indian Contract Act."
+      }
+    ],
+    "maths_hard": [
+      {
+        "q": "If a sum of money doubles itself in 5 years at simple interest, at what rate percent per annum was it invested?",
+        "type": "mcq",
+        "opts": [
+          "A) 15% p.a.",
+          "B) 20% p.a.",
+          "C) 25% p.a.",
+          "D) 30% p.a."
+        ],
+        "ans": 1,
+        "exp": "Using SI = PRT/100, if P becomes 2P, then SI = P. So P = P×R×5/100, which gives R = 20% p.a."
+      },
+      {
+        "q": "The probability of getting at least one head in 3 tosses of a fair coin is 7/8.",
+        "type": "truefalse",
+        "opts": ["True", "False"],
+        "ans": 0,
+        "exp": "True. Total outcomes = 8. Only one outcome has no heads (TTT). So favorable outcomes = 7. Probability = 7/8."
+      }
+    ],
+    "economics_pyq": [
+      {
+        "q": "The concept of 'Elasticity of Demand' measures:",
+        "type": "mcq",
+        "opts": [
+          "A) The quantity demanded at different price levels",
+          "B) The responsiveness of demand to changes in price",
+          "C) The total demand in the market",
+          "D) The supply available at different prices"
+        ],
+        "ans": 1,
+        "exp": "Elasticity of Demand measures how responsive the quantity demanded is to changes in price, expressed as a percentage change in quantity demanded divided by percentage change in price."
+      },
+      {
+        "q": "During deflation, the real value of money increases while nominal value remains the same.",
+        "type": "truefalse",
+        "opts": ["True", "False"],
+        "ans": 0,
+        "exp": "True. Deflation is a decrease in general price levels. When prices fall, each unit of money can purchase more goods and services, so its real value increases."
+      }
+    ]
+  },
+  "question_types": {
+    "mcq": {
+      "description": "Multiple Choice Question with 4 options",
+      "format": "Select the correct answer from A, B, C, or D"
+    },
+    "truefalse": {
+      "description": "True or False question",
+      "format": "Answer either True or False"
+    }
+  },
+  "difficulty_info": {
+    "easy": {
+      "description": "Basic level questions testing fundamental concepts",
+      "target_users": "Beginners, first-time learners"
+    },
+    "medium": {
+      "description": "Intermediate level requiring application of concepts",
+      "target_users": "Regular students, preparing for exams",
+      "note": "Recommended for most users"
+    },
+    "hard": {
+      "description": "Advanced level with complex scenarios and analysis",
+      "target_users": "Serious CA candidates, last-minute revision"
+    },
+    "pyq": {
+      "description": "Previous Year Questions from actual ICAI exams",
+      "target_users": "All users, especially exam preparation"
+    }
+  }
+}
