@@ -295,7 +295,7 @@ def _call_gemini(prompt, model="gemini-2.0-flash"):
         headers={"Content-Type": "application/json"},
         method="POST"
     )
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=20) as response:
         data = json.loads(response.read().decode("utf-8"))
     return data
 
@@ -557,7 +557,7 @@ async def choose_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         difficulty = ud.get("difficulty", "medium")
         is_pyq = ud.get("is_pyq", False)
-        questions = generate_questions(ud["subject"], chapter, difficulty, ud["q_type"], count, is_pyq)
+        questions = await asyncio.to_thread(generate_questions, ud["subject"], chapter, difficulty, ud["q_type"], count, is_pyq)
         ud["questions"] = questions
     except Exception as e:
         logger.error(f"Error: {e}")
