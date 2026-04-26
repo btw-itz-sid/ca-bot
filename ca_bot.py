@@ -20,9 +20,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─── APNI KEYS YAHAN DAALO ────────────────────────────────────────────────────
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8575203310:AAGwDKwdbaEVc_ckvV0rMH2lbwek65LUC9U")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyB-pBZKqk-H6c-y6PxDgkYG3ZOaM2Ur1Fs")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8575203310:AAGwDKwdbaEVc_ckvV0rMH2lbwek65LUC9U").strip()
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyB-pBZKqk-H6c-y6PxDgkYG3ZOaM2Ur1Fs").strip()
 # ──────────────────────────────────────────────────────────────────────────────
+logger.info(f"Token starts with: {TELEGRAM_TOKEN[:10]}... len={len(TELEGRAM_TOKEN)}")
 
 # User stats file for progress tracking
 STATS_FILE = "user_stats.json"
