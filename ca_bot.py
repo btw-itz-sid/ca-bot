@@ -339,15 +339,16 @@ def _parse_gemini_json(raw_text):
 
 def _try_generate_batch(prompt, models=None):
     """Ek batch ke liye multiple models try karta hai with retries
-    Free tier limits: gemini-2.0-flash=15RPM, 2.5-flash-lite=30RPM
+    gemini-2.5-flash-lite = 30 RPM (best for free tier), 2.0-flash = 15 RPM (backup)
     """
     import time
     if models is None:
-        models = ["gemini-2.0-flash", "gemini-2.5-flash-lite"]
+        # flash-lite PEHLE — 30 RPM hai, kam rate limit hota hai
+        models = ["gemini-2.5-flash-lite", "gemini-2.0-flash"]
     last_error = None
 
     for model in models:
-        for attempt in range(4):  # 4 retries for 429
+        for attempt in range(2):  # Max 2 tries per model — fail fast, next model
             try:
                 logger.info(f"Trying {model} (attempt {attempt + 1})")
                 data = _call_gemini(prompt, model)
@@ -355,12 +356,11 @@ def _try_generate_batch(prompt, models=None):
                 # Check if response has valid candidates
                 if not data.get("candidates"):
                     logger.warning(f"No candidates in response from {model}")
-                    break  # Try next model
+                    break
 
                 raw = data["candidates"][0]["content"]["parts"][0]["text"]
                 questions = _parse_gemini_json(raw)
 
-                # Validate that we got a list
                 if not isinstance(questions, list) or len(questions) == 0:
                     logger.warning(f"Empty or invalid question list from {model}")
                     break
@@ -370,35 +370,27 @@ def _try_generate_batch(prompt, models=None):
             except urllib.error.HTTPError as e:
                 last_error = e
                 if e.code == 429:
-                    # Aggressive backoff: 5s, 15s, 30s, 60s
-                    wait_time = [5, 15, 30, 60][min(attempt, 3)]
-                    logger.warning(f"Rate limited on {model}, waiting {wait_time}s (attempt {attempt+1}/4)...")
+                    wait_time = 3 if attempt == 0 else 8
+                    logger.warning(f"429 on {model}, waiting {wait_time}s...")
                     time.sleep(wait_time)
-                elif e.code in (403, 500, 503):
-                    logger.error(f"HTTP {e.code} on {model}, trying next model...")
-                    break
                 else:
-                    logger.error(f"HTTP {e.code} on {model}")
+                    logger.error(f"HTTP {e.code} on {model}, next model...")
                     break
             except (json.JSONDecodeError, KeyError, IndexError) as e:
                 last_error = e
                 logger.error(f"Parse error on {model}: {e}")
-                if attempt < 2:
-                    time.sleep(2)
-                    continue
-                break
+                time.sleep(1)
+                continue
             except Exception as e:
                 last_error = e
                 logger.error(f"Error on {model}: {e}")
                 break
 
-    return None  # All models failed for this batch
+    return None
 
 
 def generate_questions(subject_key, chapter, difficulty, q_type, count, is_pyq=False):
-    """Questions generate karta hai — BATCHED (5 at a time) to avoid API limits
-    Free tier = 15 RPM, so we wait 5s between batches to stay safe
-    """
+    """Questions generate karta hai — BATCHED (5 at a time) to avoid token limits"""
     import time
     BATCH_SIZE = 5
     all_questions = []
@@ -411,7 +403,6 @@ def generate_questions(subject_key, chapter, difficulty, q_type, count, is_pyq=F
         batch = _try_generate_batch(prompt)
 
         if batch is None:
-            # Agar koi batch fail ho gaya, aur kuch questions already hain to unhe return karo
             if all_questions:
                 logger.warning(f"Partial success: got {len(all_questions)}/{count} questions")
                 break
@@ -420,10 +411,10 @@ def generate_questions(subject_key, chapter, difficulty, q_type, count, is_pyq=F
         all_questions.extend(batch[:batch_count])
         remaining -= batch_count
 
-        # 5s delay between batches — free tier is 15 RPM, this keeps us safe
+        # 3s gap between batches
         if remaining > 0:
-            logger.info(f"Got {len(all_questions)}/{count} questions, waiting 5s before next batch...")
-            time.sleep(5)
+            logger.info(f"Got {len(all_questions)}/{count} questions, next batch in 3s...")
+            time.sleep(3)
 
     if not all_questions:
         raise Exception("Could not generate questions. Please try again.")
