@@ -424,10 +424,12 @@ def generate_questions(subject_key, chapter, difficulty, q_type, count, is_pyq=F
 
 
 def subject_keyboard():
-    return InlineKeyboardMarkup([
+    keys = [
         [InlineKeyboardButton(s["label"], callback_data=f"sub_{sid}")]
         for sid, s in SYLLABUS.items()
-    ])
+    ]
+    keys.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel_test")])
+    return InlineKeyboardMarkup(keys)
 
 
 def chapter_keyboard(subject_key):
@@ -436,7 +438,7 @@ def chapter_keyboard(subject_key):
         [InlineKeyboardButton(f"Ch {i+1}: {ch[:45]}{'...' if len(ch)>45 else ''}", callback_data=f"ch_{i}")]
         for i, ch in enumerate(chapters)
     ]
-    keys.append([InlineKeyboardButton("🔙 Back", callback_data="back_subject")])
+    keys.append([InlineKeyboardButton("🔙 Back", callback_data="back_subject"), InlineKeyboardButton("❌ Cancel", callback_data="cancel_test")])
     return InlineKeyboardMarkup(keys)
 
 
@@ -446,7 +448,7 @@ def difficulty_keyboard():
         [InlineKeyboardButton("🟡 Medium", callback_data="diff_medium")],
         [InlineKeyboardButton("🔴 Tough", callback_data="diff_hard")],
         [InlineKeyboardButton("⭐ PYQ (Previous Year)", callback_data="diff_pyq")],
-        [InlineKeyboardButton("🔙 Back", callback_data="back_chapter")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_chapter"), InlineKeyboardButton("❌ Cancel", callback_data="cancel_test")],
     ])
 
 
@@ -455,7 +457,7 @@ def type_keyboard():
         [InlineKeyboardButton("🔘 MCQ Only", callback_data="type_mcq")],
         [InlineKeyboardButton("✅ True / False Only", callback_data="type_truefalse")],
         [InlineKeyboardButton("🎲 Mixed", callback_data="type_mixed")],
-        [InlineKeyboardButton("🔙 Back", callback_data="back_difficulty")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_difficulty"), InlineKeyboardButton("❌ Cancel", callback_data="cancel_test")],
     ])
 
 
@@ -465,7 +467,7 @@ def count_keyboard():
          InlineKeyboardButton("10 Qs", callback_data="count_10")],
         [InlineKeyboardButton("15 Qs", callback_data="count_15"),
          InlineKeyboardButton("20 Qs", callback_data="count_20")],
-        [InlineKeyboardButton("🔙 Back", callback_data="back_type")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_type"), InlineKeyboardButton("❌ Cancel", callback_data="cancel_test")],
     ])
 
 
@@ -535,6 +537,9 @@ async def choose_subject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     ud = context.user_data
 
+    if query.data == "cancel_test":
+        return await cancel_test(update, context)
+
     if query.data == "back_subject":
         await query.edit_message_text("Choose your subject:", reply_markup=subject_keyboard())
         return CHOOSE_SUBJECT
@@ -554,6 +559,9 @@ async def choose_chapter(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     ud = context.user_data
 
+    if query.data == "cancel_test":
+        return await cancel_test(update, context)
+
     if query.data in ("back_chapter", "back_subject"):
         await query.edit_message_text("Choose your subject:", reply_markup=subject_keyboard())
         return CHOOSE_SUBJECT
@@ -572,6 +580,9 @@ async def choose_difficulty(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     ud = context.user_data
+
+    if query.data == "cancel_test":
+        return await cancel_test(update, context)
 
     if query.data == "back_chapter":
         await query.edit_message_text(
@@ -606,6 +617,9 @@ async def choose_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     ud = context.user_data
 
+    if query.data == "cancel_test":
+        return await cancel_test(update, context)
+
     if query.data == "back_difficulty":
         await query.edit_message_text(
             "Choose difficulty level:", reply_markup=difficulty_keyboard()
@@ -626,6 +640,9 @@ async def choose_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     ud = context.user_data
+
+    if query.data == "cancel_test":
+        return await cancel_test(update, context)
 
     if query.data == "back_type":
         await query.edit_message_text("Choose question type:", reply_markup=type_keyboard())
