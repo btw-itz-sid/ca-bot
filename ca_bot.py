@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import random
 import logging
 import asyncio
 import urllib.request
@@ -490,6 +491,7 @@ def nav_keyboard(current, total, submitted=False):
     keys = [row] if row else []
     if not submitted:
         keys.append([InlineKeyboardButton("📊 Submit Test", callback_data="submit_test")])
+        keys.append([InlineKeyboardButton("❌ Cancel Test", callback_data="cancel_test")])
     else:
         keys.append([InlineKeyboardButton("🔄 New Test", callback_data="new_test")])
     return InlineKeyboardMarkup(keys)
@@ -759,10 +761,52 @@ async def submit_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     skipped = total - len(answers)
     pct = round((correct / total) * 100)
 
-    if pct >= 80: emoji, msg = "🏆", "Excellent!"
-    elif pct >= 60: emoji, msg = "🎉", "Good job!"
-    elif pct >= 40: emoji, msg = "💪", "Keep going!"
-    else: emoji, msg = "📖", "Needs more revision!"
+    # Personalized motivational messages for Sambhavi 💜
+    msgs_90_plus = [
+        "Sambhavi, you're literally on fire! 🔥 CA Foundation doesn't stand a chance against you!",
+        "Queen Sambhavi just destroyed that test! 👑 Keep shining, future CA!",
+        "Sambhavi, itna accha score?! You're built different! 💜✨",
+        "Kya baat hai Sambhavi! Proud of you — you're gonna crack this exam easily! 🌟",
+        "Sambhavi = Future CA confirmed ✅ What a brilliant performance!",
+        "Girl you ATE that test up! 🫶 Sambhavi, you're unstoppable!",
+    ]
+    msgs_70_plus = [
+        "Sambhavi, great job yaar! 🎉 Thoda aur practice and you'll be perfect!",
+        "Look at you go, Sambhavi! 💪 You're getting better with every test!",
+        "Sambhavi, this score shows real dedication! Keep pushing, CA is calling! 📚💜",
+        "So proud of you Sambhavi! 🌸 You're improving beautifully, keep it up!",
+        "Sambhavi, you're doing amazing sweetie! 🫶 Almost perfect, next time pakka!",
+        "Strong performance Sambhavi! You're one step closer to that CA badge! 🏅",
+    ]
+    msgs_50_plus = [
+        "Sambhavi, you're getting there! 💜 Har test se better hoti ja rahi hai tu!",
+        "Not bad at all Sambhavi! 🌱 Rome wasn't built in a day, keep going!",
+        "Sambhavi, progress is progress! You're learning and that's what matters! 📖✨",
+        "You got this Sambhavi! 💪 Revise the weak topics and come back stronger!",
+        "Sambhavi, every CA started exactly where you are now! Keep believing! 🌟",
+        "Good effort Sambhavi! 🫶 Thodi si aur mehnat and you'll be unstoppable!",
+    ]
+    msgs_below_50 = [
+        "Sambhavi, don't worry! 💜 Har topper ne failures se seekha hai. You'll bounce back!",
+        "Sambhavi, this is just a practice test! Real growth comes from mistakes. Keep going! 🌱",
+        "Hey Sambhavi, tough chapter tha! 📚 Revise it once more and try again, you'll nail it!",
+        "Sambhavi, CA ka rasta mushkil hai but TU mushkil se bhi zyada strong hai! 💪✨",
+        "It's okay Sambhavi! 🫶 Even this score teaches you something. Come back stronger!",
+        "Sambhavi, remember — consistency beats perfection! Keep practicing, you're doing great! 🌸",
+    ]
+
+    if pct >= 90:
+        emoji = "🏆"
+        msg = random.choice(msgs_90_plus)
+    elif pct >= 70:
+        emoji = "🎉"
+        msg = random.choice(msgs_70_plus)
+    elif pct >= 50:
+        emoji = "💪"
+        msg = random.choice(msgs_50_plus)
+    else:
+        emoji = "📖"
+        msg = random.choice(msgs_below_50)
 
     sub = SYLLABUS[ud["subject"]]
     chapter = sub["chapters"][ud["chapter_index"]]
@@ -788,7 +832,7 @@ async def submit_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     diff_label = "⭐ PYQ" if is_pyq else f"{'🔴 Tough' if difficulty == 'hard' else '🟡 Medium' if difficulty == 'medium' else '🟢 Easy'}"
 
     await query.edit_message_text(
-        f"{emoji} Test Complete!\n\n"
+        f"{emoji} *Test Complete!*\n\n"
         f"{sub['label']} - Ch {ud['chapter_index']+1}\n"
         f"{chapter[:50]}...\n"
         f"Difficulty: {diff_label}\n\n"
@@ -796,7 +840,8 @@ async def submit_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"❌ Wrong:    {wrong}\n"
         f"⏭️ Skipped:  {skipped}\n"
         f"📊 Score:    {correct}/{total} ({pct}%)\n\n"
-        f"{msg}",
+        f"💌 _{msg}_",
+        parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📈 My Stats", callback_data="show_stats")],
             [InlineKeyboardButton("🔄 New Test", callback_data="new_test")],
@@ -849,6 +894,26 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return IN_TEST
 
 
+async def cancel_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Test cancel button — sweet message for Sambhavi"""
+    query = update.callback_query
+    await query.answer()
+    
+    cancel_msgs = [
+        "No worries Sambhavi! 💜 Break le lo, phir wapas aana!",
+        "It's okay Sambhavi! 🫶 Rest karo, test kahi nahi ja raha!",
+        "Sambhavi, thak gayi? Chai pi ke wapas aa jaana! ☕💜",
+        "Break time! 🌸 Sambhavi, jab mann kare tab /start karna!",
+        "Chill Sambhavi! 😊 Jab ready ho tab test dena, no pressure!",
+    ]
+    
+    context.user_data.clear()
+    await query.edit_message_text(
+        f"{random.choice(cancel_msgs)}\n\nType /start to begin a new test."
+    )
+    return ConversationHandler.END
+
+
 async def new_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -881,6 +946,7 @@ def main():
                 CallbackQueryHandler(handle_answer, pattern=r"^ans_"),
                 CallbackQueryHandler(handle_nav, pattern=r"^nav_"),
                 CallbackQueryHandler(submit_test, pattern=r"^submit_test$"),
+                CallbackQueryHandler(cancel_test, pattern=r"^cancel_test$"),
                 CallbackQueryHandler(show_stats, pattern=r"^show_stats$"),
                 CallbackQueryHandler(new_test, pattern=r"^new_test$"),
             ],
