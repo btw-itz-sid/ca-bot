@@ -290,57 +290,145 @@ Return exactly {count} questions. ONLY the JSON array."""
 
 
 def _call_gemini(prompt, model="gemini-2.0-flash"):
-    """Gemini API ko call karta hai, ek model ke liye"""
+    """Gemini API ko call karta hai — robust version with proper error handling"""
     import time
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
     payload = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096}
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
     }).encode("utf-8")
     req = urllib.request.Request(
         url, data=payload,
         headers={"Content-Type": "application/json"},
         method="POST"
     )
-    with urllib.request.urlopen(req, timeout=20) as response:
-        data = json.loads(response.read().decode("utf-8"))
-    return data
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return data
+    except urllib.error.HTTPError as e:
+        # Read the error body for better logging
+        error_body = ""
+        try:
+            error_body = e.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            pass
+        logger.error(f"HTTP {e.code} from {model}: {error_body}")
+        raise
+    except urllib.error.URLError as e:
+        logger.error(f"URL Error on {model}: {e.reason}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error on {model}: {e}")
+        raise
 
 
-def generate_questions(subject_key, chapter, difficulty, q_type, count, is_pyq=False):
+def _parse_gemini_json(raw_text):
+    """Gemini response se JSON array safely parse karta hai"""
+    # Remove markdown code fences
+    clean = re.sub(r"```json\s*", "", raw_text)
+    clean = re.sub(r"```\s*", "", clean).strip()
+    # Find the JSON array
+    match = re.search(r"\[.*\]", clean, re.DOTALL)
+    if match:
+        clean = match.group(0)
+    # Fix common JSON issues from Gemini
+    clean = clean.replace(",]", "]").replace(",}", "}")
+    return json.loads(clean)
+
+
+def _try_generate_batch(prompt, models=None):
+    """Ek batch ke liye multiple models try karta hai with retries
+    Free tier limits: gemini-2.0-flash=15RPM, 2.5-flash-lite=30RPM
+    """
     import time
-    prompt = build_prompt(subject_key, chapter, difficulty, q_type, count, is_pyq)
-
-    # 2.5-flash pehle try karo (separate rate limit), phir 2.0-flash, phir lite
-    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"]
+    if models is None:
+        models = ["gemini-2.0-flash", "gemini-2.5-flash-lite"]
     last_error = None
 
     for model in models:
-        for attempt in range(3):  # Har model ke 3 retry
+        for attempt in range(4):  # 4 retries for 429
             try:
                 logger.info(f"Trying {model} (attempt {attempt + 1})")
                 data = _call_gemini(prompt, model)
+
+                # Check if response has valid candidates
+                if not data.get("candidates"):
+                    logger.warning(f"No candidates in response from {model}")
+                    break  # Try next model
+
                 raw = data["candidates"][0]["content"]["parts"][0]["text"]
-                clean = re.sub(r"```json|```", "", raw).strip()
-                match = re.search(r"\[.*\]", clean, re.DOTALL)
-                if match:
-                    clean = match.group(0)
-                return json.loads(clean)
+                questions = _parse_gemini_json(raw)
+
+                # Validate that we got a list
+                if not isinstance(questions, list) or len(questions) == 0:
+                    logger.warning(f"Empty or invalid question list from {model}")
+                    break
+
+                return questions
+
             except urllib.error.HTTPError as e:
                 last_error = e
                 if e.code == 429:
-                    wait_time = (2 ** attempt) * 2  # 2s, 4s, 8s backoff
-                    logger.warning(f"Rate limited on {model}, waiting {wait_time}s...")
+                    # Aggressive backoff: 5s, 15s, 30s, 60s
+                    wait_time = [5, 15, 30, 60][min(attempt, 3)]
+                    logger.warning(f"Rate limited on {model}, waiting {wait_time}s (attempt {attempt+1}/4)...")
                     time.sleep(wait_time)
+                elif e.code in (403, 500, 503):
+                    logger.error(f"HTTP {e.code} on {model}, trying next model...")
+                    break
                 else:
-                    logger.error(f"HTTP {e.code} on {model}: {e}")
-                    break  # Dusre model pe try karo
+                    logger.error(f"HTTP {e.code} on {model}")
+                    break
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                last_error = e
+                logger.error(f"Parse error on {model}: {e}")
+                if attempt < 2:
+                    time.sleep(2)
+                    continue
+                break
             except Exception as e:
                 last_error = e
                 logger.error(f"Error on {model}: {e}")
                 break
 
-    raise last_error or Exception("All models failed. Please try again later.")
+    return None  # All models failed for this batch
+
+
+def generate_questions(subject_key, chapter, difficulty, q_type, count, is_pyq=False):
+    """Questions generate karta hai — BATCHED (5 at a time) to avoid API limits
+    Free tier = 15 RPM, so we wait 5s between batches to stay safe
+    """
+    import time
+    BATCH_SIZE = 5
+    all_questions = []
+    remaining = count
+
+    while remaining > 0:
+        batch_count = min(remaining, BATCH_SIZE)
+        prompt = build_prompt(subject_key, chapter, difficulty, q_type, batch_count, is_pyq)
+
+        batch = _try_generate_batch(prompt)
+
+        if batch is None:
+            # Agar koi batch fail ho gaya, aur kuch questions already hain to unhe return karo
+            if all_questions:
+                logger.warning(f"Partial success: got {len(all_questions)}/{count} questions")
+                break
+            raise Exception("Gemini API unavailable. Please try again in a minute.")
+
+        all_questions.extend(batch[:batch_count])
+        remaining -= batch_count
+
+        # 5s delay between batches — free tier is 15 RPM, this keeps us safe
+        if remaining > 0:
+            logger.info(f"Got {len(all_questions)}/{count} questions, waiting 5s before next batch...")
+            time.sleep(5)
+
+    if not all_questions:
+        raise Exception("Could not generate questions. Please try again.")
+
+    return all_questions
 
 
 def subject_keyboard():
@@ -559,7 +647,11 @@ async def choose_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sub = SYLLABUS[ud["subject"]]
     chapter = sub["chapters"][ud["chapter_index"]]
 
-    await query.edit_message_text(f"Generating {count} questions...\nPlease wait a moment!")
+    wait_msg = f"⏳ Generating {count} questions...\n"
+    if count > 5:
+        wait_msg += f"(Generating in batches, may take 15-30 seconds)\n"
+    wait_msg += "Please wait!"
+    await query.edit_message_text(wait_msg)
 
     try:
         difficulty = ud.get("difficulty", "medium")
@@ -567,8 +659,18 @@ async def choose_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         questions = await asyncio.to_thread(generate_questions, ud["subject"], chapter, difficulty, ud["q_type"], count, is_pyq)
         ud["questions"] = questions
     except Exception as e:
-        logger.error(f"Error: {e}")
-        await query.edit_message_text(f"Error: {str(e)}\n\nType /start to try again.")
+        logger.error(f"Error generating questions: {e}")
+        error_msg = str(e)
+        # User-friendly error messages
+        if "403" in error_msg:
+            display_error = "API key issue. Please check your Gemini API key."
+        elif "429" in error_msg:
+            display_error = "Rate limited. Please wait 1 minute and try again."
+        elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+            display_error = "Request timed out. Please try again."
+        else:
+            display_error = "Could not generate questions. Please try again."
+        await query.edit_message_text(f"❌ {display_error}\n\nType /start to try again.")
         return ConversationHandler.END
 
     q = questions[0]
